@@ -50,6 +50,8 @@ pub mod Staker {
         deadline: u64,
         open_for_withdraw: bool,
         external_contract_address: ContractAddress,
+        deploy_timestamp: u64,
+        total_staked_amount: u256,
     }
 
     #[constructor]
@@ -62,6 +64,12 @@ pub mod Staker {
         self.external_contract_address.write(external_contract_address);
         // ToDo Checkpoint 2: Set the deadline to 60 seconds from now. Implement your code here.
 
+
+    	let current_timestamp: u64 = get_block_timestamp();
+
+        self.deploy_timestamp.write(current_timestamp);
+        self.total_staked_amount.write(0);
+    	
     }
 
     #[abi(embed_v0)]
@@ -73,6 +81,22 @@ pub mod Staker {
         ) { // Note: In UI and Debug contract `sender` should call `approve`` before to `transfer` the amount to the staker contract
         //self.emit(Stake { sender, amount }); // ToDo Checkpoint 1: Uncomment to emit the Stake
         //event
+            
+            let stake_timestamp: u64 = get_block_timestamp();
+        
+            if(stake_timestamp < self.deploy_timestamp.read() + 300) {
+
+                self.eth_token_dispatcher.read().transferFrom(get_caller_address(), get_contract_address(), amount);
+                self.emit(Stake { sender: get_caller_address() , amount });
+
+                self.total_staked_amount.write(self.total_staked_amount.read() + amount);
+                self.balances.insert(get_caller_address(), amount);
+
+            }
+
+        	// self.eth_token_dispatcher.read().transferFrom(get_caller_address(), get_contract_address(), amount);
+        	// self.emit(Stake { sender: get_caller_address() , amount });
+            
         }
 
         // Function to execute the transfer or allow withdrawals after the deadline
@@ -85,7 +109,17 @@ pub mod Staker {
         fn execute(ref self: ContractState) {}
 
         // ToDo Checkpoint 3: Implement your `withdraw` function here
-        fn withdraw(ref self: ContractState) {}
+        fn withdraw(ref self: ContractState) {
+            
+            // let withdraw_amount: u256 = self.balances.entry(get_caller_address()).read();
+
+            // self.eth_token_dispatcher.read().transferFrom(
+            //     get_contract_address(),
+            //     get_caller_address(),
+            //     withdraw_amount
+            // );
+
+        }
 
         fn balances(self: @ContractState, account: ContractAddress) -> u256 {
             self.balances.read(account)
